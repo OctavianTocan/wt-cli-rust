@@ -1,0 +1,21 @@
+# Build
+/target/
+debug/
+*.pdb
+
+# Cargo
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust-mentor cache (keep the plan, ignore temp state)
+.rust-mentor/cache/

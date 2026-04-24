@@ -15,6 +15,248 @@ Both return a `ProcessResult` with stdout, stderr, and exit status. Both throw o
 
 ---
 
+## Original Code (Before)
+
+```typescript
+// src/core/process.ts — the full file (79 lines)
+
+import { spawnSync } from "node:child_process";
+
+export interface ProcessOptions {
+  cwd?: string;
+  allowFailure?: boolean;
+  env?: NodeJS.ProcessEnv;
+  stdio?: "inherit" | "pipe";
+}
+
+export interface ProcessResult {
+  stdout: string;
+  stderr: string;
+  status: number;
+}
+
+function formatFailure(
+  command: string,
+  args: string[],
+  result: ProcessResult,
+): string {
+  const rendered = [command, ...args].join(" ");
+  const output = [result.stdout.trim(), result.stderr.trim()]
+    .filter(Boolean)
+    .join("\n");
+  return output ? `${rendered}\n${output}` : rendered;
+}
+
+export function runProcess(
+  command: string,
+  args: string[],
+  options: ProcessOptions = {},
+): ProcessResult {
+  const result = spawnSync(command, args, {
+    cwd: options.cwd,
+    env: options.env,
+    stdio: options.stdio ?? "pipe",
+    encoding: "utf8",
+  });
+
+  const normalized: ProcessResult = {
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    status: result.status ?? 0,
+  };
+
+  if (normalized.status !== 0 && !options.allowFailure) {
+    throw new Error(formatFailure(command, args, normalized));
+  }
+
+  return normalized;
+}
+
+export function runShell(
+  command: string,
+  options: ProcessOptions = {},
+): ProcessResult {
+  const result = spawnSync(command, {
+    cwd: options.cwd,
+    env: options.env,
+    stdio: options.stdio ?? "pipe",
+    shell: true,
+    encoding: "utf8",
+  });
+
+  const normalized: ProcessResult = {
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    status: result.status ?? 0,
+  };
+
+  if (normalized.status !== 0 && !options.allowFailure) {
+    const output = [normalized.stdout.trim(), normalized.stderr.trim()]
+      .filter(Boolean)
+      .join("\n");
+    throw new Error(output ? `${command}\n${output}` : command);
+  }
+
+  return normalized;
+}
+```
+
+---
+
+## Translation Walkthrough
+
+### Mapping 1: Interfaces → structs
+
+**TypeScript:**
+```typescript
+export interface ProcessOptions {
+  cwd?: string;
+  allowFailure?: boolean;
+  env?: NodeJS.ProcessEnv;
+  stdio?: "inherit" | "pipe";
+}
+
+export interface ProcessResult {
+  stdout: string;
+  stderr: string;
+  status: number;
+}
+```
+
+**Rust:**
+```rust
+pub struct ProcessOptions {
+    pub cwd: Option<String>,
+    pub allow_failure: bool,
+    pub env: Option<Vec<(String, String)>>,
+}
+
+pub struct ProcessResult {
+    pub stdout: String,
+    pub stderr: String,
+    pub status: i32,
+}
+```
+
+What changed and why:
+- `cwd?: string` → `cwd: Option<String>`. Same pattern as step 1 — `?` becomes `Option<T>`.
+- `allowFailure?: boolean` → `allow_failure: bool`. Note: no `Option` here. In the TS version, `allowFailure` defaults to `undefined` (falsy). In Rust, we'll use `Default` to set it to `false` explicitly. No need for `Option` when the default is a plain `false`.
+- `env?: NodeJS.ProcessEnv` → `env: Option<Vec<(String, String)>>`. Node's `ProcessEnv` is a string map. Rust doesn't have a built-in env type — we use a list of key-value pairs. (You could also use `HashMap<String, String>` but Vec is simpler for now.)
+- `stdio?: "inherit" | "pipe"` → dropped for now. We'll always capture output (equivalent to `"pipe"`). Adding stdio control is a later refinement.
+- `status: number` → `status: i32`. Exit codes are signed 32-bit integers. Negative values signal signal-killed processes on Unix.
+
+### Mapping 2: throw → Result<T, E>
+
+**TypeScript:**
+```typescript
+export function runProcess(
+  command: string,
+  args: string[],
+  options: ProcessOptions = {},
+): ProcessResult {
+  const result = spawnSync(command, args, { ... });
+  
+  if (normalized.status !== 0 && !options.allowFailure) {
+    throw new Error(formatFailure(command, args, normalized));
+  }
+  
+  return normalized;
+}
+```
+
+**Rust:**
+```rust
+pub fn run_process(
+    command: &str,
+    args: &[&str],
+    options: &ProcessOptions,
+) -> Result<ProcessResult, String> {
+    let mut cmd = Command::new(command);
+    cmd.args(args);
+    
+    if let Some(cwd) = &options.cwd {
+        cmd.current_dir(cwd);
+    }
+    
+    let output = cmd.output().map_err(|e| e.to_string())?;
+    let status = output.status.code().unwrap_or(0);
+    
+    let result = ProcessResult {
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        status,
+    };
+    
+    if result.status != 0 && !options.allow_failure {
+        return Err(format_failure(command, args, &result));
+    }
+    
+    Ok(result)
+}
+```
+
+What changed and why:
+- `throw new Error(...)` → `return Err(...)`. In TS, any function can throw. In Rust, the return type declares what can go wrong: `Result<ProcessResult, String>` means "either Ok(ProcessResult) or Err(String)." The compiler checks that callers handle both.
+- `spawnSync(...)` → `Command::new(command).args(args).output()`. Same idea — run a process, capture output. Different API: Command is a builder pattern.
+- `.output()` returns `Result<Output, io::Error>` — two layers of failure. The outer Result is "did the process even start?" The inner exit code is "did it succeed?" In TS, spawnSync returns null-ish values on crash. In Rust, both are explicit.
+- `.map_err(|e| e.to_string())?` — converts the io::Error into a plain String (to match our `Result<_, String>`), then `?` returns early if it failed.
+- `String::from_utf8_lossy(&output.stdout)` — process output is raw bytes (`Vec<u8>`). This converts to String, replacing invalid UTF-8 with �. TS's `encoding: "utf8"` does the same thing silently.
+- `command: string` → `command: &str`. Function parameters that just read text use `&str` (borrowed string) instead of `String` (owned). This lets callers pass either `String` or `&str` without cloning. You'll see `&str` in function signatures and `String` in struct fields — that's the standard pattern.
+
+### Mapping 3: runShell → sh -c
+
+**TypeScript:**
+```typescript
+export function runShell(command: string, options: ProcessOptions = {}): ProcessResult {
+  const result = spawnSync(command, {
+    shell: true,
+    // ...other options
+  });
+  // ...same error handling
+}
+```
+
+**Rust:**
+```rust
+pub fn run_shell(command: &str, options: &ProcessOptions) -> Result<ProcessResult, String> {
+    // Uses: sh -c "command string"
+    let mut cmd = Command::new("sh");
+    cmd.arg("-c").arg(command);
+    // ...same body as run_process
+}
+```
+
+What changed and why:
+- Node's `shell: true` option means "run this through the system shell." Rust's `Command` doesn't have that option — you explicitly run `sh -c <command>`. More verbose, but you see exactly what's happening.
+- The rest of the function body is identical to `run_process`. In TS, runProcess and runShell share structure via the options object. In Rust, they share structure by… writing similar code. You could refactor this into a shared helper later, but for learning, keeping them separate is clearer.
+
+### Mapping 4: Default values
+
+**TypeScript:**
+```typescript
+options: ProcessOptions = {}  // default to empty object
+// then: options.cwd ?? undefined, options.allowFailure ?? false
+```
+
+**Rust:**
+```rust
+impl Default for ProcessOptions {
+    fn default() -> Self {
+        ProcessOptions {
+            cwd: None,
+            allow_failure: false,
+            env: None,
+        }
+    }
+}
+```
+
+What changed and why:
+- TS uses default parameter values (`= {}`) and nullish coalescing (`??`). Rust uses the `Default` trait — a standard way to say "give me the zero/empty version of this type." Callers write `ProcessOptions::default()` to get one.
+- This is more explicit but also more discoverable — `Default` is a convention across the entire Rust ecosystem.
+
+---
+
 ## Rust Concepts
 
 ### Concept 1: std::process::Command

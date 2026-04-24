@@ -7,50 +7,79 @@
     "total_lines": 2240,
     "entry_point": "src/cli.ts",
     "architecture_layers": {
-      "types": "src/types.ts (139 lines) — 16 interfaces and type aliases defining every data structure",
-      "core": "src/core/ (6 files, 860 lines) — git.ts, config.ts, worktree.ts, setup.ts, health.ts, process.ts, shell.ts",
-      "commands": "src/commands/ (11 files, 435 lines) — create, go, list, status, setup, sync-env, clean, doctor, repair, exec, init",
-      "cli": "src/cli.ts (147 lines) — argument parsing, command dispatch, interactive menu",
-      "ui": "src/ui/ (2 files, 305 lines) — display.ts (formatting), prompts.ts (interactive menus)"
+      "types": "src/types.ts (139 lines) \u2014 16 interfaces and type aliases defining every data structure",
+      "core": "src/core/ (6 files, 860 lines) \u2014 git.ts, config.ts, worktree.ts, setup.ts, health.ts, process.ts, shell.ts",
+      "commands": "src/commands/ (11 files, 435 lines) \u2014 create, go, list, status, setup, sync-env, clean, doctor, repair, exec, init",
+      "cli": "src/cli.ts (147 lines) \u2014 argument parsing, command dispatch, interactive menu",
+      "ui": "src/ui/ (2 files, 305 lines) \u2014 display.ts (formatting), prompts.ts (interactive menus)"
     },
-    "architecture_summary": "3-layer CLI tool: types (data shapes) → core (business logic: git ops, config loading, worktree management, setup orchestration, health checks) → commands (CLI surface, one per action). cli.ts dispatches commands. The process.ts module is the foundational I/O layer that everything else builds on — it wraps child_process.spawnSync for both direct commands and shell commands."
+    "architecture_summary": "3-layer CLI tool: types (data shapes) \u2192 core (business logic: git ops, config loading, worktree management, setup orchestration, health checks) \u2192 commands (CLI surface, one per action). cli.ts dispatches commands. The process.ts module is the foundational I/O layer that everything else builds on \u2014 it wraps child_process.spawnSync for both direct commands and shell commands."
   },
   "steps": [
     {
       "id": 1,
       "title": "Types: structs and enums",
-      "source_files": ["src/types.ts"],
-      "rust_concepts": ["struct", "enum", "derive macros (Debug, Clone, Serialize, Deserialize)", "Option<T>", "impl blocks"],
+      "source_files": [
+        "src/types.ts"
+      ],
+      "rust_concepts": [
+        "struct",
+        "enum",
+        "derive macros (Debug, Clone, Serialize, Deserialize)",
+        "Option<T>",
+        "impl blocks"
+      ],
       "architecture_context": "The types file is the skeleton of the entire project. Every other module imports from here. It defines 16 interfaces covering config shapes, git data, worktree info, health reports, and command context. Understanding these types = understanding what data flows through the tool.",
-      "status": "pending",
-      "pr_number": null,
-      "branch": null
+      "status": "pr_open",
+      "pr_number": 1,
+      "branch": "rust-mentor/step-1-types-structs-enums"
     },
     {
       "id": 2,
       "title": "Process spawning: the I/O foundation",
-      "source_files": ["src/core/process.ts"],
-      "rust_concepts": ["std::process::Command", "Result<T,E> error handling", "the ? operator", "String vs &str basics"],
-      "architecture_context": "process.ts is the lowest-level module — everything that talks to the outside world goes through here. It wraps Node's spawnSync into two functions: runProcess (direct commands) and runShell (shell strings). git.ts, setup.ts, and shell.ts all depend on it. Building this first means you have a working I/O layer before touching any git logic.",
-      "status": "pending",
-      "pr_number": null,
-      "branch": null
+      "source_files": [
+        "src/core/process.ts"
+      ],
+      "rust_concepts": [
+        "std::process::Command",
+        "Result<T,E> error handling",
+        "the ? operator",
+        "String vs &str basics"
+      ],
+      "architecture_context": "process.ts is the lowest-level module \u2014 everything that talks to the outside world goes through here. It wraps Node's spawnSync into two functions: runProcess (direct commands) and runShell (shell strings). git.ts, setup.ts, and shell.ts all depend on it. Building this first means you have a working I/O layer before touching any git logic.",
+      "status": "pr_open",
+      "pr_number": 2,
+      "branch": "rust-mentor/step-2-process-spawning"
     },
     {
       "id": 3,
       "title": "Config: file I/O and serialization",
-      "source_files": ["src/core/config.ts"],
-      "rust_concepts": ["std::fs file reading", "serde deserialization", "Default trait", "Path and PathBuf"],
-      "architecture_context": "config.ts reads wt.config.json (or package.json#wt) from the project root, validates it against a schema (zod in TS), applies defaults for missing fields, and returns a LoadedConfig. Every command loads config as one of its first steps. This teaches you Rust's approach to file I/O + structured parsing — the serde ecosystem is one of Rust's killer features.",
-      "status": "pending",
-      "pr_number": null,
-      "branch": null
+      "source_files": [
+        "src/core/config.ts"
+      ],
+      "rust_concepts": [
+        "std::fs file reading",
+        "serde deserialization",
+        "Default trait",
+        "Path and PathBuf"
+      ],
+      "architecture_context": "config.ts reads wt.config.json (or package.json#wt) from the project root, validates it against a schema (zod in TS), applies defaults for missing fields, and returns a LoadedConfig. Every command loads config as one of its first steps. This teaches you Rust's approach to file I/O + structured parsing \u2014 the serde ecosystem is one of Rust's killer features.",
+      "status": "pr_open",
+      "pr_number": 3,
+      "branch": "rust-mentor/step-3-config-file-io"
     },
     {
       "id": 4,
       "title": "Git operations: the command layer",
-      "source_files": ["src/core/git.ts"],
-      "rust_concepts": ["module organization (mod)", "Vec and iterators", "string parsing with split/trim/parse", "trait methods (FromStr, parse)"],
+      "source_files": [
+        "src/core/git.ts"
+      ],
+      "rust_concepts": [
+        "module organization (mod)",
+        "Vec and iterators",
+        "string parsing with split/trim/parse",
+        "trait methods (FromStr, parse)"
+      ],
       "architecture_context": "git.ts is the largest core module (193 lines). It wraps every git command the tool needs: checking if you're in a repo, listing branches, getting status, checking if branches are merged, fetching, finding the default branch. It's pure process.ts + string parsing. This is where you'll spend the most time translating line-by-line, and where Rust's string handling really differs from TypeScript.",
       "status": "pending",
       "pr_number": null,
@@ -59,8 +88,14 @@
     {
       "id": 5,
       "title": "Worktree operations: combining git + config",
-      "source_files": ["src/core/worktree.ts"],
-      "rust_concepts": ["ownership and borrowing (&self, &str, String)", "pattern matching with match", "async functions and tokio (optional — can stay sync)"],
+      "source_files": [
+        "src/core/worktree.ts"
+      ],
+      "rust_concepts": [
+        "ownership and borrowing (&self, &str, String)",
+        "pattern matching with match",
+        "async functions and tokio (optional \u2014 can stay sync)"
+      ],
       "architecture_context": "worktree.ts is the heart of the tool. It combines git.ts operations to list, create, find, and remove worktrees. The parseWorktreeList function parses git's porcelain output into structured data. createWorktree handles three modes (local branch, remote branch, new branch). getCleanableWorktrees categorizes worktrees for cleanup. This is the first module where you're orchestrating multiple git operations together.",
       "status": "pending",
       "pr_number": null,
@@ -69,9 +104,16 @@
     {
       "id": 6,
       "title": "CLI dispatch: clap and pattern matching",
-      "source_files": ["src/cli.ts"],
-      "rust_concepts": ["clap derive API", "match expressions", "enum dispatch", "Result propagation in main"],
-      "architecture_context": "cli.ts is the entry point. It parses command-line arguments, resolves aliases (c→create, ls→list, sw→go), and dispatches to the right command handler. If no command is given and we're in a TTY, it shows an interactive menu. This is where Rust's match expression absolutely shines — the TypeScript switch statement maps directly to idiomatic Rust.",
+      "source_files": [
+        "src/cli.ts"
+      ],
+      "rust_concepts": [
+        "clap derive API",
+        "match expressions",
+        "enum dispatch",
+        "Result propagation in main"
+      ],
+      "architecture_context": "cli.ts is the entry point. It parses command-line arguments, resolves aliases (c\u2192create, ls\u2192list, sw\u2192go), and dispatches to the right command handler. If no command is given and we're in a TTY, it shows an interactive menu. This is where Rust's match expression absolutely shines \u2014 the TypeScript switch statement maps directly to idiomatic Rust.",
       "status": "pending",
       "pr_number": null,
       "branch": null
@@ -79,9 +121,16 @@
     {
       "id": 7,
       "title": "Command: list (read-only, simplest)",
-      "source_files": ["src/commands/list.ts", "src/ui/display.ts"],
-      "rust_concepts": ["formatted output (println!, format!)", "implementing Display trait", "iterator chains (map, filter, collect)"],
-      "architecture_context": "The list command is the simplest — it calls getAllWorktrees and prints them in a formatted table. display.ts handles the formatting (colored output, table alignment). This is a good first command because it's read-only: no mutations, no error paths to handle beyond 'not a git repo'. You'll learn how to format and display data in Rust.",
+      "source_files": [
+        "src/commands/list.ts",
+        "src/ui/display.ts"
+      ],
+      "rust_concepts": [
+        "formatted output (println!, format!)",
+        "implementing Display trait",
+        "iterator chains (map, filter, collect)"
+      ],
+      "architecture_context": "The list command is the simplest \u2014 it calls getAllWorktrees and prints them in a formatted table. display.ts handles the formatting (colored output, table alignment). This is a good first command because it's read-only: no mutations, no error paths to handle beyond 'not a git repo'. You'll learn how to format and display data in Rust.",
       "status": "pending",
       "pr_number": null,
       "branch": null
@@ -89,8 +138,14 @@
     {
       "id": 8,
       "title": "Command: status (read-only, with config)",
-      "source_files": ["src/commands/status.ts"],
-      "rust_concepts": ["struct composition", "conditional formatting", "JSON output mode (serde Serialize)"],
+      "source_files": [
+        "src/commands/status.ts"
+      ],
+      "rust_concepts": [
+        "struct composition",
+        "conditional formatting",
+        "JSON output mode (serde Serialize)"
+      ],
       "architecture_context": "status shows an overview of all worktrees with their git status, health, and last modified time. It loads config and combines worktree data with health data. Slightly more complex than list because it touches config + worktree + health, but still read-only.",
       "status": "pending",
       "pr_number": null,
@@ -99,9 +154,16 @@
     {
       "id": 9,
       "title": "Command: create (write operations)",
-      "source_files": ["src/commands/create.ts", "src/commands/setup.ts"],
-      "rust_concepts": ["error handling patterns (custom error types, thiserror)", "mutable state", "side effects in functions"],
-      "architecture_context": "create is the first command that mutates state — it creates a new worktree (via worktree.ts) then runs setup on it. This introduces the pattern of 'do a thing, then verify it worked'. Error handling matters here because git operations can fail in many ways.",
+      "source_files": [
+        "src/commands/create.ts",
+        "src/commands/setup.ts"
+      ],
+      "rust_concepts": [
+        "error handling patterns (custom error types, thiserror)",
+        "mutable state",
+        "side effects in functions"
+      ],
+      "architecture_context": "create is the first command that mutates state \u2014 it creates a new worktree (via worktree.ts) then runs setup on it. This introduces the pattern of 'do a thing, then verify it worked'. Error handling matters here because git operations can fail in many ways.",
       "status": "pending",
       "pr_number": null,
       "branch": null
@@ -109,9 +171,18 @@
     {
       "id": 10,
       "title": "Commands: doctor, repair, clean (health system)",
-      "source_files": ["src/commands/doctor.ts", "src/commands/repair.ts", "src/commands/clean.ts", "src/core/health.ts"],
-      "rust_concepts": ["trait objects (dyn Trait)", "closures and function pointers", "collection transformation pipelines"],
-      "architecture_context": "These three commands form the health system. doctor inspects and reports, repair fixes, clean removes. They share the health.ts module which categorizes issues (dirty, ahead, behind, stale, orphaned). This batch teaches you how to build a diagnostic/repair pipeline — a pattern that transfers to any tooling project.",
+      "source_files": [
+        "src/commands/doctor.ts",
+        "src/commands/repair.ts",
+        "src/commands/clean.ts",
+        "src/core/health.ts"
+      ],
+      "rust_concepts": [
+        "trait objects (dyn Trait)",
+        "closures and function pointers",
+        "collection transformation pipelines"
+      ],
+      "architecture_context": "These three commands form the health system. doctor inspects and reports, repair fixes, clean removes. They share the health.ts module which categorizes issues (dirty, ahead, behind, stale, orphaned). This batch teaches you how to build a diagnostic/repair pipeline \u2014 a pattern that transfers to any tooling project.",
       "status": "pending",
       "pr_number": null,
       "branch": null
@@ -119,9 +190,18 @@
     {
       "id": 11,
       "title": "Commands: go, exec, init, sync-env (remaining commands)",
-      "source_files": ["src/commands/go.ts", "src/commands/exec.ts", "src/commands/init.ts", "src/commands/sync-env.ts"],
-      "rust_concepts": ["environment variables (std::env)", "path manipulation", "shell integration patterns"],
-      "architecture_context": "go prints or resolves a worktree path (used by shell integration). exec runs a command inside a worktree. init scaffolds a new wt.config.json. sync-env re-runs copy steps. These are the utility commands — each is small and focused, good for practicing what you've learned from the earlier steps.",
+      "source_files": [
+        "src/commands/go.ts",
+        "src/commands/exec.ts",
+        "src/commands/init.ts",
+        "src/commands/sync-env.ts"
+      ],
+      "rust_concepts": [
+        "environment variables (std::env)",
+        "path manipulation",
+        "shell integration patterns"
+      ],
+      "architecture_context": "go prints or resolves a worktree path (used by shell integration). exec runs a command inside a worktree. init scaffolds a new wt.config.json. sync-env re-runs copy steps. These are the utility commands \u2014 each is small and focused, good for practicing what you've learned from the earlier steps.",
       "status": "pending",
       "pr_number": null,
       "branch": null
@@ -129,9 +209,16 @@
     {
       "id": 12,
       "title": "Shell integration and interactive menu",
-      "source_files": ["src/core/shell.ts", "src/ui/prompts.ts"],
-      "rust_concepts": ["string interpolation and templates", "platform detection (cfg target_os)", "reading from stdin"],
-      "architecture_context": "shell.ts generates shell init scripts (zsh, bash, fish) that hook the wt command into the shell so 'wt go <branch>' actually cd's into the worktree. prompts.ts provides an interactive menu when you run wt with no arguments. These are the finishing touches that make the tool feel complete. Shell script generation is a legitimate Rust use case — you're producing strings that get eval'd by another language.",
+      "source_files": [
+        "src/core/shell.ts",
+        "src/ui/prompts.ts"
+      ],
+      "rust_concepts": [
+        "string interpolation and templates",
+        "platform detection (cfg target_os)",
+        "reading from stdin"
+      ],
+      "architecture_context": "shell.ts generates shell init scripts (zsh, bash, fish) that hook the wt command into the shell so 'wt go <branch>' actually cd's into the worktree. prompts.ts provides an interactive menu when you run wt with no arguments. These are the finishing touches that make the tool feel complete. Shell script generation is a legitimate Rust use case \u2014 you're producing strings that get eval'd by another language.",
       "status": "pending",
       "pr_number": null,
       "branch": null

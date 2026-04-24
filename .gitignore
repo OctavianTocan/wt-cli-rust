@@ -5,6 +5,15 @@
 .DS_Store
 
 # Editor / IDE
+# Build
+/target/
+debug/
+*.pdb
+
+# Cargo
+Cargo.lock
+
+# IDE
 .idea/
 .vscode/
 *.swp
@@ -12,4 +21,9 @@
 *~
 
 # Rust-mentor ephemeral state (commit plan.json, ignore caches)
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust-mentor cache (keep the plan, ignore temp state)
 .rust-mentor/cache/

@@ -1,6 +1,8 @@
-use serde_json::de;
+// ============================================================================
+// Git primitives
+// ============================================================================
 
-/// Represents information about a Git branch, including its name, whether it is a remote branch, and whether it is the current branch.
+/// A Git branch, local or remote, and whether it is currently checked out.
 #[derive(Debug, Clone)]
 pub struct GitBranch {
     pub name: String,
@@ -8,7 +10,7 @@ pub struct GitBranch {
     pub current: bool,
 }
 
-/// Represents the configuration for a setup process, including installation steps and file copy operations.
+/// A single commit's identifying metadata.
 #[derive(Debug, Clone)]
 pub struct CommitInfo {
     pub sha: String,
@@ -16,7 +18,7 @@ pub struct CommitInfo {
     pub message: String,
 }
 
-/// Represents the status of a Git repository, including whether it has uncommitted changes, how many commits it is ahead or behind its upstream branch, and how many uncommitted files it has.
+/// Working-tree and upstream-tracking status for a repository.
 #[derive(Debug, Clone)]
 pub struct GitStatus {
     pub is_dirty: bool,
@@ -26,7 +28,11 @@ pub struct GitStatus {
     pub upstream: Option<String>,
 }
 
-/// Represents information about a Git worktree, including its path, current branch, latest commit, status, last modification time, and whether it is the main branch or the current worktree.
+// ============================================================================
+// Worktree model
+// ============================================================================
+
+/// A single Git worktree with its branch, latest commit, and status snapshot.
 #[derive(Debug, Clone)]
 pub struct WorktreeInfo {
     pub path: String,
@@ -38,15 +44,18 @@ pub struct WorktreeInfo {
     pub is_current: bool,
 }
 
-/// Represents the source of files to be copied in a setup step, which can be either a single file or multiple files.
 impl WorktreeInfo {
-    /// Determines if the worktree is clean, meaning it has no uncommitted changes and is not ahead or behind its upstream branch.
+    /// True when the worktree has no uncommitted changes and is level with its upstream.
     pub fn is_clean(&self) -> bool {
         !self.status.is_dirty && self.status.ahead == 0 && self.status.behind == 0
     }
 }
 
-/// Represents different kinds of issues that can be detected during the setup process, such as uncommitted changes, being ahead or behind the upstream branch, stale files, orphaned files, or verification failures.
+// ============================================================================
+// Health checks
+// ============================================================================
+
+/// Category of problem detected by a worktree health check.
 #[derive(Debug, Clone)]
 pub enum IssueKind {
     Dirty,
@@ -57,9 +66,8 @@ pub enum IssueKind {
     Verification,
 }
 
-/// Provides a string representation for each kind of issue, which can be used for display purposes or in logs.
 impl IssueKind {
-    /// Returns a string representation of the issue kind, which can be used for display purposes or in logs.
+    /// Stable lowercase label for display and logs.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Dirty => "dirty",
@@ -72,14 +80,14 @@ impl IssueKind {
     }
 }
 
-/// Represents an issue detected during the setup process, including its kind and a descriptive message.
+/// A single issue surfaced by a health check, with a human-readable message.
 #[derive(Debug, Clone)]
 pub struct HealthIssue {
     pub kind: IssueKind,
     pub message: String,
 }
 
-/// Represents a health report for a Git worktree, including the worktree information, any issues detected during the health check, and whether the worktree is considered healthy.
+/// Aggregate health result for a worktree: the worktree plus every issue found.
 #[derive(Debug, Clone)]
 pub struct WorktreeHealthReport {
     pub worktree: WorktreeInfo,
@@ -87,14 +95,18 @@ pub struct WorktreeHealthReport {
     pub is_healthy: bool,
 }
 
-/// Represents the source of files to be copied in a setup step.
+// ============================================================================
+// Setup configuration
+// ============================================================================
+
+/// Source paths for a `Copy` setup step — either one file or many.
 #[derive(Debug, Clone)]
 pub enum CopySource {
     Single(String),
     Multiple(Vec<String>),
 }
 
-/// Represents a step in the setup process, which can be either an installation or a file copy operation.
+/// One action in the setup pipeline run after a worktree is created.
 #[derive(Debug, Clone)]
 pub enum SetupStep {
     Install {
@@ -118,20 +130,24 @@ pub enum SetupStep {
     },
 }
 
-/// Represents the overall configuration for the setup process, including the steps to be executed and any lifecycle scripts that should be run at different stages of the process.
+/// Ordered list of setup steps to execute.
 #[derive(Debug, Clone)]
 pub struct SetupConfig {
     pub steps: Vec<SetupStep>,
 }
 
-/// Represents lifecycle scripts that can be executed at different stages of the setup process, such as before or after the main setup steps.
+/// Hooks that run around the setup pipeline.
 #[derive(Debug, Clone)]
 pub struct LifecycleScripts {
     pub postsetup: Option<String>,
     pub preclean: Option<String>,
 }
 
-/// Represents lifecycle scripts that can be executed at different stages of the setup process, such as before or after the main setup steps.
+// ============================================================================
+// Top-level config
+// ============================================================================
+
+/// Full user configuration: layout, branch policy, and setup/lifecycle scripts.
 #[derive(Debug, Clone)]
 pub struct WtConfig {
     pub worktree_dir: String,
@@ -145,7 +161,7 @@ pub struct WtConfig {
     pub lifecycle_scripts: LifecycleScripts,
 }
 
-/// Represents a loaded configuration, including the configuration data itself, the source from which it was loaded, and the root path of the configuration.
+/// A resolved `WtConfig` along with where it was loaded from.
 #[derive(Debug, Clone)]
 pub struct LoadedConfig {
     pub config: WtConfig,
@@ -153,12 +169,20 @@ pub struct LoadedConfig {
     pub root_path: String,
 }
 
-/// Represents lifecycle scripts that can be executed at different stages of the setup process, such as before or after the main setup steps.
+// ============================================================================
+// Runtime context
+// ============================================================================
+
+/// Per-invocation context passed into commands (working directory, output mode).
 #[derive(Debug, Clone)]
 pub struct CommandContext {
     pub cwd: String,
     pub json: bool,
 }
+
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

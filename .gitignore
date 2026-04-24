@@ -1,0 +1,15 @@
+# Rust build artifacts
+/target/
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Rust-mentor ephemeral state (commit plan.json, ignore caches)
+.rust-mentor/cache/

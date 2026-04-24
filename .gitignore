@@ -1,3 +1,10 @@
+# Rust build artifacts
+/target/
+
+# macOS
+.DS_Store
+
+# Editor / IDE
 # Build
 /target/
 debug/
@@ -13,6 +20,7 @@ Cargo.lock
 *.swo
 *~
 
+# Rust-mentor ephemeral state (commit plan.json, ignore caches)
 # OS
 .DS_Store
 Thumbs.db
